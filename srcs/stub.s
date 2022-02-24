@@ -1,9 +1,9 @@
 SECTION .TEXT
-	global _payload
-	global _falseend
+	global _start_payload
+	global _end_payload
 
 
-_payload:
+_start_payload:
 	mov rax,1
 	mov rdi, 1
 	lea rsi,[rel msg]
@@ -13,4 +13,4 @@ _payload:
 
 msg db `....WOODY.....\n`, 0x0
 
-_falseend:
+_end_payload:

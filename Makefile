@@ -3,12 +3,13 @@
 #                                                         :::      ::::::::    #
 #    Makefile                                           :+:      :+:    :+:    #
 #                                                     +:+ +:+         +:+      #
-#    By: nieyraud <nieyraud@student.42.fr>          +#+  +:+       +#+         #
+#    By: bafraiki <marvin@42.fr>                    +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
-#    Created: 2022/02/23 16:28:15 by nieyraud          #+#    #+#              #
-#    Updated: 2022/02/23 11:10:14 by nieyraud         ###   ########.fr        #
+#    Created: 2022/02/23 17:16:52 by bafraiki          #+#    #+#              #
+#    Updated: 2022/02/24 12:04:53 by bafraiki         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
+
 
 #####################
 #		COLOR		#
@@ -66,7 +67,8 @@ all : $(NAME)
 
 $(NAME) : ${OBJ} 
 	@echo "${vertclair}Creating ${NAME}"
-	@gcc ${FLAGS} ${OPT_FLAGS} -I include  ${OBJ} -o ${NAME}
+#	@gcc ${FLAGS} ${OPT_FLAGS} -I include  ${OBJ} -o ${NAME}
+	@gcc  ${OPT_FLAGS} -I include  ${OBJ} -o ${NAME}
 	@echo "${vertclair}[Woody ready to pack]"
 
 sanitize : ${LIBS} ${OBJ} ${INCLUDE} 
@@ -77,7 +79,8 @@ sanitize : ${LIBS} ${OBJ} ${INCLUDE}
 ${OBJ_PATH}/%.o: %.c
 	@mkdir -p ${OBJ_PATH}
 	@echo "${cyanfonce}Compiling ${notdir $(basename $@)}"
-	@gcc $(FLAGS) -c -o $@ -I include/ $<
+#	@gcc $(FLAGS) -c -o $@ -I include/ $<
+	@gcc -c -o $@ -I include/ $<
 -include $(OBJ:.o=.d)
 
 $(OBJ_PATH)/%.o: %.s
