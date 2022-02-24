@@ -27,7 +27,7 @@ rouge=\033[31m
 #####################
 #		SOURCES		#
 #####################
-NAME = woody
+NAME = woody_woodpacker
 
 SRC_FILE = main.c	
 SRC_ASM = stub.s
