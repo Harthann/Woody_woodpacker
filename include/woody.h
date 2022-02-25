@@ -28,7 +28,6 @@ typedef struct s_file_informations
 	int		fd;
 	char 		*mmaped;
 	uint64_t 	length;
-	t_header_elf64 	*headers;
 	uint16_t number_of_headers;	
 } 		t_file_informations;
 
