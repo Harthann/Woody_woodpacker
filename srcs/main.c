@@ -88,7 +88,9 @@ void	inject_code_into_file_given(t_file_informations *file_given, t_header_to_in
 	while(size_payload--)
 		where_to_write[size_payload] = ((char*)_start_payload)[size_payload];
 	*(t_header_elf64*)header_of_segment_to_inject->address_of_header_in_mmaped_file_given = header_of_segment_to_inject->header;
-		file_given->mmaped[0x18] = (uint64_t)(where_to_write - file_given->mmaped);
+	uint64_t tmp = (uint64_t)file_given->mmaped[0x18];
+	file_given->mmaped[0x18] = (uint64_t)(where_to_write - file_given->mmaped);
+	//manque d'ajouter la jump instruction pour continuer le deroulement normal du programme
 }
 
 int main(int argc, char **argv)
@@ -96,7 +98,7 @@ int main(int argc, char **argv)
 	t_file_informations file_given;
 	int	size_payload;
 
-	size_payload = _end_payload - _start_payload;
+	size_payload = (_end_payload - _start_payload);
 	file_given.fd =	handle_init_error_or_return_fd(argc, argv);
 	file_given.length = get_the_file_length(file_given.fd);
 	file_given.mmaped = (char*)mmap(
