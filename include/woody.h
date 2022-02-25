@@ -15,13 +15,18 @@ extern void _end_payload(void);
 typedef struct 	s_header_elf64	{
 	uint32_t	        type;
 	uint32_t	        flags;
-	uint64_t		offset;
-	uint64_t		virtual_addr;
-	uint64_t		physical_addr;
-	uint64_t	        file_size;
+	uint64_t					offset;
+	uint64_t					virtual_addr;
+	uint64_t					physical_addr;
+	uint64_t					file_size;
 	uint64_t	        memory_size;
 	uint64_t	        align;
 } 		t_header_elf64;
+
+typedef struct	s_header_to_inject {
+	char							*address_of_header_in_mmaped_file_given;
+	t_header_elf64		header;
+}								t_header_to_inject;
 
 typedef struct s_file_informations 
 {
