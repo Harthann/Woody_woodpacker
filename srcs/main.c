@@ -48,22 +48,31 @@ char is_this_an_elf64_file(t_file_informations *file_given) {
 	return NO;
 }
 
-t_header_elf64 *get_header_table_of_elf_file(t_file_informations *file_given)
+int	is_there_a_place_beetween_those_two_section_to_put_my_payload(t_header_elf64 *first, t_header_elf64 *second, int size_payload)
 {
-	uint16_t 	number_of_headers;
-	uint64_t	offset_where_headers_start;
-	uint16_t	tmp;
+	return ((second->offset - (first->offset + first->memory_size)) >= size_payload);
+}
 
-	tmp = -1;
+int choose_which_section_to_inject_by_reading_file_header(t_file_informations *file_given, int size_payload)
+{
+
+	int counter = -1;
+	t_header_elf64 last_header = {0};
+	t_header_elf64 current_readed_header = {0};
 	file_given->number_of_headers = (uint16_t)file_given->mmaped[56];
-	offset_where_headers_start = (uint64_t)file_given->mmaped[32];
-	file_given->headers = (t_header_elf64*)malloc(sizeof(t_header_elf64) * file_given->number_of_headers);
-	while(++tmp < file_given->number_of_headers)
+	uint64_t offset_where_headers_start = (uint64_t)file_given->mmaped[32];
+	while(++counter < file_given->number_of_headers)
 	{
-		file_given->headers[tmp] = *(t_header_elf64*)(&file_given->mmaped[offset_where_headers_start + (sizeof(t_header_elf64) * tmp)]);
-		printf("header_type 0x%x | offset 0x%lx | file_size 0x%lx | memoire_size 0x%lx \n", file_given->headers[tmp].type, file_given->headers[tmp].offset, file_given->headers[tmp].file_size, file_given->headers[tmp].memory_size );
-	}
+		last_header = current_readed_header;
+		current_readed_header = *(t_header_elf64*)(&file_given->mmaped[offset_where_headers_start + sizeof(t_header_elf64) * counter]);
+		if (current_readed_header.type == last_header.type)
+		{
+			if (is_there_a_place_beetween_those_two_section_to_put_my_payload(&last_header, &current_readed_header, size_payload))
+				return counter;
 
+		}
+	}
+	return NO;
 }
 
 int main(int argc, char **argv)
@@ -71,7 +80,7 @@ int main(int argc, char **argv)
 	t_file_informations file_given;
 	int	size_payload;
 
-	size_payload = _start_payload - _end_payload;
+	size_payload = _end_payload - _start_payload;
 	file_given.fd =	handle_init_error_or_return_fd(argc, argv);
 	file_given.length = get_the_file_length(file_given.fd);
 	file_given.mmaped = (char*)mmap(
@@ -81,13 +90,15 @@ int main(int argc, char **argv)
 			MAP_PRIVATE,			//I don't want that others process can read what I do
 			file_given.fd, 				
 			0); 				//offset
-	if (file_given.mmaped == NULL)
+	if (file_given.mmaped == NULL || file_given.length == 0)
 		return(1);
 	if (is_this_an_elf64_file(&file_given) == NO)
 		return(1);
-	get_header_table_of_elf_file(&file_given);
+	int which_section = choose_which_section_to_inject_by_reading_file_header(&file_given, size_payload);
+	if (which_section == 0)
+		return(1);
+
 
 	//	_payload();
-	//	_mmap();
 }
 

@@ -11,6 +11,6 @@ _start_payload:
 	syscall
 	ret
 
-msg db `....WOODY.....\n`, 0x0
+msg db `....WOODY......\n`, 0x0
 
 _end_payload:
