@@ -85,11 +85,13 @@ void	inject_code_into_file_given(t_file_informations *file_given, t_header_to_in
 {
 	char *where_to_write = &file_given->mmaped[header_of_segment_to_inject->header.offset + header_of_segment_to_inject->header.memory_size];
 	header_of_segment_to_inject->header.memory_size += size_payload;
+	header_of_segment_to_inject->header.file_size += size_payload;
 	while(size_payload--)
 		where_to_write[size_payload] = ((char*)_start_payload)[size_payload];
 	*(t_header_elf64*)header_of_segment_to_inject->address_of_header_in_mmaped_file_given = header_of_segment_to_inject->header;
-	uint64_t tmp = (uint64_t)file_given->mmaped[0x18];
-	file_given->mmaped[0x18] = (uint64_t)(where_to_write - file_given->mmaped);
+	uint64_t program_entry_origin = *(uint64_t*)&file_given->mmaped[0x18];
+	*(uint64_t*)&file_given->mmaped[0x18] = (uint64_t)(where_to_write - file_given->mmaped);
+	printf("entry_program %lx, origin %lx\n", *(uint64_t*)&file_given->mmaped[0x18], program_entry_origin);
 	//manque d'ajouter la jump instruction pour continuer le deroulement normal du programme
 }
 

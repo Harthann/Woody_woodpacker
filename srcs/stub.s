@@ -9,7 +9,6 @@ _start_payload:
 	lea rsi,[rel msg]
 	mov rdx, 15
 	syscall
-	ret
 
 msg db `....WOODY......\n`, 0x0
 
