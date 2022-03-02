@@ -3,5 +3,6 @@
 
 extern void _payload(void);
 extern void _falseend(void);
+extern void _mybegin(void);
 
 #endif
