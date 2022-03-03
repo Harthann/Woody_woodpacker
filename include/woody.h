@@ -6,6 +6,7 @@
 
 extern void _start_payload(void);
 extern void _end_payload(void);
+extern uint64_t where_to_jump;
 
 #define YES 1
 #define NO 0

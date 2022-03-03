@@ -1,7 +1,5 @@
 #include <stdio.h>
 #include <woody.h>
-
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -54,7 +52,7 @@ int	is_there_a_place_beetween_those_two_section_to_put_my_payload(t_header_elf64
 }
 
 char *get_address_of_header_segment_in_mmaped_file_given_with_his_number(t_file_informations *file_given, int number) {
-	uint64_t offset_where_headers_start = (uint64_t)file_given->mmaped[32];
+	uint64_t offset_where_headers_start = (uint64_t)file_given->mmaped[0x20];
 	return (&file_given->mmaped[offset_where_headers_start + sizeof(t_header_elf64) * number]);
 }
 
@@ -64,7 +62,7 @@ t_header_to_inject choose_which_section_to_inject_by_reading_file_header(t_file_
 	t_header_elf64 last_header = {0};
 	t_header_elf64 current_readed_header = {0};
 	t_header_to_inject no_segment_to_inject = {NO};
-	file_given->number_of_headers = (uint16_t)file_given->mmaped[56];
+	file_given->number_of_headers = (uint16_t)file_given->mmaped[0x38];
 	while(++counter < file_given->number_of_headers)
 	{
 		current_readed_header = *(t_header_elf64*)get_address_of_header_segment_in_mmaped_file_given_with_his_number(file_given, counter);
@@ -83,15 +81,24 @@ t_header_to_inject choose_which_section_to_inject_by_reading_file_header(t_file_
 
 void	inject_code_into_file_given(t_file_informations *file_given, t_header_to_inject *header_of_segment_to_inject, int size_payload)
 {
-	char *where_to_write = &file_given->mmaped[header_of_segment_to_inject->header.offset + header_of_segment_to_inject->header.memory_size];
+	uint64_t offset_where_to_write = header_of_segment_to_inject->header.offset + header_of_segment_to_inject->header.memory_size;
+	char *where_to_write = &file_given->mmaped[offset_where_to_write];
+	uint64_t program_entry_origin = *(uint64_t*)&file_given->mmaped[0x18];
 	header_of_segment_to_inject->header.memory_size += size_payload;
 	header_of_segment_to_inject->header.file_size += size_payload;
+	header_of_segment_to_inject->header.flags |= 0x1; 
+	uint64_t how_many_to_jump = (uint64_t)(program_entry_origin - (offset_where_to_write + size_payload));
 	while(size_payload--)
-		where_to_write[size_payload] = ((char*)_start_payload)[size_payload];
+	{
+		if ((void*)(_start_payload + size_payload) == (void*)&where_to_jump)
+			*(uint64_t*)(&where_to_write[size_payload]) = how_many_to_jump + 1;
+		else
+			where_to_write[size_payload] = ((char*)_start_payload)[size_payload];
+	}		
+	printf("%lx %lx\n", *(uint64_t*)&where_to_write[0x16], how_many_to_jump);
 	*(t_header_elf64*)header_of_segment_to_inject->address_of_header_in_mmaped_file_given = header_of_segment_to_inject->header;
-	uint64_t program_entry_origin = *(uint64_t*)&file_given->mmaped[0x18];
 	*(uint64_t*)&file_given->mmaped[0x18] = (uint64_t)(where_to_write - file_given->mmaped);
-	printf("entry_program %lx, origin %lx\n", *(uint64_t*)&file_given->mmaped[0x18], program_entry_origin);
+	printf("entry_program %lx, origin %lx, jump of %lx and should be %lx\n", *(uint64_t*)&file_given->mmaped[0x18], program_entry_origin, how_many_to_jump,program_entry_origin - *(uint64_t*)&file_given->mmaped[0x18]);
 	//manque d'ajouter la jump instruction pour continuer le deroulement normal du programme
 }
 
@@ -121,11 +128,11 @@ int main(int argc, char **argv)
 	printf("we inject code into %dth section type\n", header_of_section_to_inject.header.type);
 	inject_code_into_file_given(&file_given, &header_of_section_to_inject, size_payload);
 
-	int new_file_fd = open("./sample.new", O_WRONLY | O_CREAT);
+	int new_file_fd = open("./sample.new", O_RDWR | O_CREAT, 0777);
 	write(new_file_fd, file_given.mmaped, file_given.length);
 	close(new_file_fd);
 
 
-	//	_payload();
+
 }
 
