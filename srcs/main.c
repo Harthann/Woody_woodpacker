@@ -5,13 +5,6 @@
 #include <sys/mman.h>
 #include <elf.h>
 
-#define PAYLOAD_LEN (long unsigned)(_falseend - _payload)
-
-typedef struct {
-    char *file;
-    unsigned int size;
-}           t_file;
-
 t_file load_file(char *path)
 {
 	int fd;
@@ -27,16 +20,17 @@ t_file load_file(char *path)
 	close(fd);
 	return file;
 }
-    
+
 void write_payload(t_file file, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr)
 {
     unsigned int offset;
+    t_payload *payload = (t_payload*)_payload;
 
     offset = phdr->p_offset + phdr->p_memsz;
     for (unsigned int i = 0; i < PAYLOAD_LEN; i++)
         file.file[offset + i] = ((char*)_payload)[i];
 
-    *(unsigned long *)(file.file + offset + 5) = (unsigned long)(ehdr->e_entry - (phdr->p_paddr + phdr->p_memsz));
+    payload->addr = (unsigned long)(ehdr->e_entry - (phdr->p_paddr + phdr->p_memsz));
 
     ehdr->e_entry = phdr->p_paddr + phdr->p_memsz;
     phdr->p_memsz += PAYLOAD_LEN;
@@ -60,7 +54,6 @@ void create_file(t_file file)
         printf("Failed to open file: errno\n");
 }
 
-
 void elfinfo(t_file file)
 {
     Elf64_Ehdr *ehdr;
@@ -75,17 +68,17 @@ void elfinfo(t_file file)
     write(1, "\n", 1);
 
     /* Printing PT_LOAD section info */
-    printf("%8s | %8s | %8s | %7s | %7s\n", "id", "type", "offset", "len", "space");
+    printf("%8s | %8s | %8s | %7s | %7s | %7s\n", "id", "type", "offset", "filesz" ,"memsz", "space");
     for (int i = 0; i < ehdr->e_phnum; i++)
     {
         if (phdr[i].p_type == PT_LOAD)
         {
-            printf("%8d | %8x | %8lx | %7ld | %7ld\n", i, phdr[i].p_type, phdr[i].p_offset, phdr[i].p_memsz, (i + 1 == ehdr->e_phnum) ? 0 : phdr[i + 1].p_offset - phdr[i].p_offset - phdr[i].p_memsz);
-            if (!target && phdr[i + 1].p_offset - phdr[i].p_offset - phdr[i].p_memsz > PAYLOAD_LEN)
+            printf("%8d | %8x | %8lx | %7ld | %7ld | %7ld\n", i, phdr[i].p_type, phdr[i].p_offset, phdr[i].p_filesz ,phdr[i].p_memsz, (i + 1 == ehdr->e_phnum) ? 0 : phdr[i + 1].p_offset - phdr[i].p_offset - phdr[i].p_filesz);
+            if (!target && phdr[i + 1].p_offset - phdr[i].p_offset - phdr[i].p_filesz > PAYLOAD_LEN)
                 target = phdr + i;
         }
     }
-    printf("\nSection selected: %8x | %8lx | %7ld\n", target->p_type, target->p_offset, target->p_memsz);
+    printf("\nSection selected: %8x | %8lx | %7ld\n", target->p_type, target->p_offset, target->p_filesz);
     
     /* Writing payload inside target section */
     write_payload(file, ehdr, target);
