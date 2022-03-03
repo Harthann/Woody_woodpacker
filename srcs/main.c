@@ -91,7 +91,7 @@ void	inject_code_into_file_given(t_file_informations *file_given, t_header_to_in
 	while(size_payload--)
 	{
 		if ((void*)(_start_payload + size_payload) == (void*)&where_to_jump)
-			*(uint64_t*)(&where_to_write[size_payload]) = how_many_to_jump + 1;
+			*(uint64_t*)(&where_to_write[size_payload]) = how_many_to_jump;
 		else
 			where_to_write[size_payload] = ((char*)_start_payload)[size_payload];
 	}		
