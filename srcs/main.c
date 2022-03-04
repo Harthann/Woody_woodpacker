@@ -8,7 +8,7 @@
 t_file load_file(char *path)
 {
 	int fd;
-    t_file file = {0};
+	t_file file = {0};
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0)
@@ -23,78 +23,91 @@ t_file load_file(char *path)
 
 void write_payload(t_file file, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr)
 {
-    unsigned int offset;
-    t_payload *payload = (t_payload*)_payload;
+	unsigned int offset;
+	t_payload *payload;
 
-    offset = phdr->p_offset + phdr->p_memsz;
-    for (unsigned int i = 0; i < PAYLOAD_LEN; i++)
-        file.file[offset + i] = ((char*)_payload)[i];
+	offset = phdr->p_offset + phdr->p_memsz;
+	payload = (t_payload*)(file.file + offset);
+	for (unsigned int i = 0; i < PAYLOAD_LEN; i++)
+		file.file[offset + i] = ((char*)_payload)[i];
+	payload->addr = (unsigned long)(ehdr->e_entry - (phdr->p_vaddr + phdr->p_memsz));
+	write(2, payload, PAYLOAD_LEN);
 
-    payload->addr = (unsigned long)(ehdr->e_entry - (phdr->p_paddr + phdr->p_memsz));
-
-    ehdr->e_entry = phdr->p_paddr + phdr->p_memsz;
-    phdr->p_memsz += PAYLOAD_LEN;
-    phdr->p_filesz += PAYLOAD_LEN;
-    phdr->p_flags |= PF_X;
+	ehdr->e_entry = phdr->p_vaddr + phdr->p_memsz;
+	phdr->p_memsz += PAYLOAD_LEN;
+	phdr->p_filesz += PAYLOAD_LEN;
+	phdr->p_flags |= PF_X;
 }
 
 void create_file(t_file file)
 {
-    int fd;
+	int fd;
 
-    fd = open("woody", O_CREAT | O_WRONLY | O_TRUNC, 0667);
-    if (fd > 0)
-    {
-        printf("Opened file with fd: %d\n", fd);
-        printf("Writing new binary\n");
-        write(fd, file.file, file.size);
-        close(fd);
-    }
-    else
-        printf("Failed to open file: errno\n");
+	fd = open("woody", O_CREAT | O_WRONLY | O_TRUNC, 0667);
+	if (fd > 0)
+	{
+		printf("Opened file with fd: %d\n", fd);
+		printf("Writing new binary\n");
+		write(fd, file.file, file.size);
+		close(fd);
+	}
+	else
+		printf("Failed to open file: errno\n");
 }
 
 void elfinfo(t_file file)
 {
-    Elf64_Ehdr *ehdr;
-    Elf64_Phdr *phdr;
-    Elf64_Phdr *target = NULL;
+	Elf64_Ehdr *ehdr;
+	Elf64_Phdr *phdr;
+	Elf64_Phdr *target = NULL;
 
 
-    ehdr = (Elf64_Ehdr*)file.file;
-    phdr = (Elf64_Phdr*)(file.file + ehdr->e_phoff);
-    
-    write(1, ehdr->e_ident, 4);
-    write(1, "\n", 1);
+	ehdr = (Elf64_Ehdr*)file.file;
+	phdr = (Elf64_Phdr*)(file.file + ehdr->e_phoff);
 
-    /* Printing PT_LOAD section info */
-    printf("%8s | %8s | %8s | %7s | %7s | %7s\n", "id", "type", "offset", "filesz" ,"memsz", "space");
-    for (int i = 0; i < ehdr->e_phnum; i++)
-    {
-        if (phdr[i].p_type == PT_LOAD)
-        {
-            printf("%8d | %8x | %8lx | %7ld | %7ld | %7ld\n", i, phdr[i].p_type, phdr[i].p_offset, phdr[i].p_filesz ,phdr[i].p_memsz, (i + 1 == ehdr->e_phnum) ? 0 : phdr[i + 1].p_offset - phdr[i].p_offset - phdr[i].p_filesz);
-            if (!target && phdr[i + 1].p_offset - phdr[i].p_offset - phdr[i].p_filesz > PAYLOAD_LEN)
-                target = phdr + i;
-        }
-    }
-    printf("\nSection selected: %8x | %8lx | %7ld\n", target->p_type, target->p_offset, target->p_filesz);
-    
-    /* Writing payload inside target section */
-    write_payload(file, ehdr, target);
+	write(1, ehdr->e_ident, 4);
+	write(1, "\n", 1);
 
-    /* Create file and writing our packed binary */
-    create_file(file);
+	/* Printing PT_LOAD section info */
+	printf("%8s | %8s | %8s | %7s | %7s | %7s\n", "id", "type", "offset", "filesz" ,"memsz", "space");
+	for (int i = 0; i < ehdr->e_phnum; i++)
+	{
+		if (phdr[i].p_type == PT_LOAD)
+		{
+			printf("%8d | %8x | %8lx | %7ld | %7ld | %7ld\n", i, phdr[i].p_type, phdr[i].p_offset, phdr[i].p_filesz ,phdr[i].p_memsz, (i + 1 == ehdr->e_phnum) ? 0 : phdr[i + 1].p_offset - phdr[i].p_offset - phdr[i].p_filesz);
+			if (!target && phdr[i + 1].p_offset - phdr[i].p_offset - phdr[i].p_filesz > PAYLOAD_LEN)
+				target = phdr + i;
+		}
+	}
+	printf("\nSection selected:\n%8.0d | %8x | %8lx | %7ld | %7ld\n", 0, target->p_type, target->p_offset, target->p_filesz ,target->p_memsz);
+	
+	/* Print sections info */
+	Elf64_Shdr *shdr = (Elf64_Shdr*)ehdr->e_shoff;
+	printf("Sections info:\n%8s | %8s | %8s | %7s | %7s\n", "name", "type", "offset", "size" ,"alignement");
+	char 	**shst = (char **) (file.file + shdr[ehdr->e_shstrndx].sh_offset);
+	for (int i = 0; i < ehdr->e_shnum; i++)
+	{
+		printf("%8s | %8d | %8lx | %8lx | %8lx\n", shst[shdr[i].sh_name], shdr[i].sh_type, shdr[i].sh_offset, shdr[i].sh_size, shdr[i].sh_addralign);
+	}
+
+
+	/* Encrypt .text section */
+
+	/* Writing payload inside target section */
+	write_payload(file, ehdr, target);
+
+	/* Create file and writing our packed binary */
+	create_file(file);
 }
 
 int main(int ac, char **av)
 {
-    t_file file;
+	t_file file;
 
 	if (ac != 2)
 	{
 		printf("I need something to pack, thanks\n");
-        return (0);
+		return (0);
 	}
 	printf("Payload len: %ld\n", PAYLOAD_LEN);
 	file = load_file(av[1]);
@@ -103,7 +116,7 @@ int main(int ac, char **av)
 		write(2, "Failed to load file\n",20);
 		return 0;
 	}
-    elfinfo(file);
-    munmap(file.file, file.size); 
+	elfinfo(file);
+	munmap(file.file, file.size); 
 }
 

@@ -8,16 +8,16 @@ extern void _falseend(void);
 extern void _mybegin(void);
 
 typedef struct {
-    char *file;
-    unsigned int size;
-}           t_file;
+	char			*file;
+	unsigned int	size;
+}					t_file;
 
 typedef struct {
-    char    call[5];
-    unsigned long addr;
-    char    msg[16];
-    char    shellcode[44];
-} t_payload;
+	char			call[5];
+	unsigned long	addr;
+	char			msg[16];
+	char			shellcode[44];
+}	__attribute__((packed))				t_payload;
 
 
 
