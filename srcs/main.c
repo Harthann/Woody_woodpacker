@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <elf.h>
+#include <string.h>
 
 t_file load_file(char *path)
 {
@@ -16,12 +17,12 @@ t_file load_file(char *path)
 	file.size = lseek(fd, 0, SEEK_END);
 	printf("File loaded length: %d\n", file.size);
 	lseek(fd, 0, SEEK_SET);
-	file.file = mmap(NULL, file.size + 1, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);	
+	file.file = mmap(NULL, file.size + 1, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
 	close(fd);
 	return file;
 }
 
-void write_payload(t_file file, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr)
+t_payload *write_payload(t_file file, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr)
 {
 	unsigned int offset;
 	t_payload *payload;
@@ -31,12 +32,13 @@ void write_payload(t_file file, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr)
 	for (unsigned int i = 0; i < PAYLOAD_LEN; i++)
 		file.file[offset + i] = ((char*)_payload)[i];
 	payload->addr = (unsigned long)(ehdr->e_entry - (phdr->p_vaddr + phdr->p_memsz));
-	write(2, payload, PAYLOAD_LEN);
+///write(2, payload, PAYLOAD_LEN);
 
 	ehdr->e_entry = phdr->p_vaddr + phdr->p_memsz;
 	phdr->p_memsz += PAYLOAD_LEN;
 	phdr->p_filesz += PAYLOAD_LEN;
 	phdr->p_flags |= PF_X;
+	return payload;
 }
 
 void create_file(t_file file)
@@ -55,15 +57,46 @@ void create_file(t_file file)
 		printf("Failed to open file: errno\n");
 }
 
+void encrypt(char *str, unsigned int size, unsigned long key)
+{
+	for (unsigned int i = 0; i < 8; i++)
+	{
+		((unsigned long*)str)[i] = 'A';
+	}
+
+	(void)str;
+	(void)size;
+	(void)key;
+
+}
+
+unsigned long random_key(void)
+{
+	int fd;
+	unsigned long key;
+
+	fd = open("/dev/urandom", O_RDONLY);
+	if (fd < 0)
+		return 0xdeadbeef;
+	read(fd, (char*)&key, 8);
+	printf("Randomized key: %ld\n", key);
+	close(fd);
+	return key;
+}
+
 void elfinfo(t_file file)
 {
-	Elf64_Ehdr *ehdr;
-	Elf64_Phdr *phdr;
-	Elf64_Phdr *target = NULL;
-
+	Elf64_Ehdr 	*ehdr = NULL;	//	File header
+	Elf64_Phdr 	*phdr = NULL;	//	Program header
+	Elf64_Phdr 	*target = NULL;	//	Header of segment to inject
+	Elf64_Shdr 	*shdr = NULL;	//	Section header
+	char 		*shst = NULL;	//	Section header strings
+	t_payload   *payload = NULL;
 
 	ehdr = (Elf64_Ehdr*)file.file;
 	phdr = (Elf64_Phdr*)(file.file + ehdr->e_phoff);
+	shdr = (Elf64_Shdr*)(file.file + ehdr->e_shoff);
+	shst = (char *)(file.file + shdr[ehdr->e_shstrndx].sh_offset);
 
 	write(1, ehdr->e_ident, 4);
 	write(1, "\n", 1);
@@ -79,22 +112,32 @@ void elfinfo(t_file file)
 				target = phdr + i;
 		}
 	}
-	printf("\nSection selected:\n%8.0d | %8x | %8lx | %7ld | %7ld\n", 0, target->p_type, target->p_offset, target->p_filesz ,target->p_memsz);
-	
+	printf("\nSegment selected:\n%8.0d | %8x | %8lx | %7ld | %7ld\n", 0, target->p_type, target->p_offset, target->p_filesz ,target->p_memsz);
+	/* Writing payload inside target section */
+	payload = write_payload(file, ehdr, target);
+
 	/* Print sections info */
-	Elf64_Shdr *shdr = (Elf64_Shdr*)ehdr->e_shoff;
-	printf("Sections info:\n%8s | %8s | %8s | %7s | %7s\n", "name", "type", "offset", "size" ,"alignement");
-	char 	**shst = (char **) (file.file + shdr[ehdr->e_shstrndx].sh_offset);
+	printf("Sections info:\n%20s | %15s | %15s | %15s | %15s\n", "name", "type", "offset", "size" ,"addr");
 	for (int i = 0; i < ehdr->e_shnum; i++)
 	{
-		printf("%8s | %8d | %8lx | %8lx | %8lx\n", shst[shdr[i].sh_name], shdr[i].sh_type, shdr[i].sh_offset, shdr[i].sh_size, shdr[i].sh_addralign);
+		//printf("%8s\n",  shst[shdr[i].sh_name]);
+		printf("%20s | %10x | %15lx | %15lx | %15lx\n", shst + shdr[i].sh_name, shdr[i].sh_type, shdr[i].sh_offset, shdr[i].sh_size, shdr[i].sh_addr);
+		if (strcmp(shst + shdr[i].sh_name, ".text") == 0)
+		{
+			//encrypt 
+			payload->key = random_key();
+			encrypt(file.file + shdr[i].sh_offset, shdr[i].sh_size, payload->key);
+			payload->encrypt_offset = shdr[i].sh_addr;
+			payload->text_len = shdr[i].sh_size;
+		}
+
 	}
-
-
 	/* Encrypt .text section */
 
-	/* Writing payload inside target section */
-	write_payload(file, ehdr, target);
+	/* Log payload to debug	*/
+	int logfd = open("paylog", O_CREAT | O_WRONLY | O_TRUNC, 0667);
+	write(logfd, (char*)payload, sizeof(t_payload));
+
 
 	/* Create file and writing our packed binary */
 	create_file(file);
@@ -106,7 +149,7 @@ int main(int ac, char **av)
 
 	if (ac != 2)
 	{
-		printf("I need something to pack, thanks\n");
+		write(2, "I need something to pack, thanks\n", 32);
 		return (0);
 	}
 	printf("Payload len: %ld\n", PAYLOAD_LEN);
@@ -118,5 +161,6 @@ int main(int ac, char **av)
 	}
 	elfinfo(file);
 	munmap(file.file, file.size); 
+	return 0;
 }
 

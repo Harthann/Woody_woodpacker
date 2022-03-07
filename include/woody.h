@@ -15,6 +15,9 @@ typedef struct {
 typedef struct {
 	char			call[5];
 	unsigned long	addr;
+	unsigned long	key;
+	unsigned long	encrypt_offset;
+	unsigned long	text_len;
 	char			msg[16];
 	char			shellcode[44];
 }	__attribute__((packed))				t_payload;
