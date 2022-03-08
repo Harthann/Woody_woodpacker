@@ -84,10 +84,12 @@ void	inject_code_into_file_given(t_file_informations *file_given, t_header_to_in
 	uint64_t offset_where_to_write = header_of_segment_to_inject->header.offset + header_of_segment_to_inject->header.memory_size;
 	char *where_to_write = &file_given->mmaped[offset_where_to_write];
 	uint64_t program_entry_origin = *(uint64_t*)&file_given->mmaped[0x18];
+	printf("%ld %ld %ld\n ", file_given->length, offset_where_to_write, program_entry_origin);
+	offset_where_to_write = header_of_segment_to_inject->header.virtual_addr + header_of_segment_to_inject->header.memory_size;
 	header_of_segment_to_inject->header.memory_size += size_payload;
 	header_of_segment_to_inject->header.file_size += size_payload;
-	header_of_segment_to_inject->header.flags |= 0x1; 
-	uint64_t how_many_to_jump = (uint64_t)(program_entry_origin - (offset_where_to_write + size_payload));
+	header_of_segment_to_inject->header.flags |= 0x1;
+	uint64_t how_many_to_jump = (uint64_t)(program_entry_origin - offset_where_to_write);
 	while(size_payload--)
 	{
 		if ((void*)(_start_payload + size_payload) == (void*)&where_to_jump)
@@ -95,12 +97,19 @@ void	inject_code_into_file_given(t_file_informations *file_given, t_header_to_in
 		else
 			where_to_write[size_payload] = ((char*)_start_payload)[size_payload];
 	}		
-	printf("%lx %lx\n", *(uint64_t*)&where_to_write[0x16], how_many_to_jump);
 	*(t_header_elf64*)header_of_segment_to_inject->address_of_header_in_mmaped_file_given = header_of_segment_to_inject->header;
-	*(uint64_t*)&file_given->mmaped[0x18] = (uint64_t)(where_to_write - file_given->mmaped);
+	*(uint64_t*)&file_given->mmaped[0x18] = (uint64_t)(offset_where_to_write);
 	printf("entry_program %lx, origin %lx, jump of %lx and should be %lx\n", *(uint64_t*)&file_given->mmaped[0x18], program_entry_origin, how_many_to_jump,program_entry_origin - *(uint64_t*)&file_given->mmaped[0x18]);
 	//manque d'ajouter la jump instruction pour continuer le deroulement normal du programme
 }
+
+/*
+uint64_t random() {
+	open("/dev/urandom", O_RONLY);
+
+
+}
+*/
 
 int main(int argc, char **argv)
 {
@@ -131,8 +140,7 @@ int main(int argc, char **argv)
 	int new_file_fd = open("./sample.new", O_RDWR | O_CREAT, 0777);
 	write(new_file_fd, file_given.mmaped, file_given.length);
 	close(new_file_fd);
-
-
-
+	
+	return (0);
 }
 

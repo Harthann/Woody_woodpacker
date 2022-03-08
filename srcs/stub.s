@@ -9,6 +9,8 @@ _start_payload:
 msg db `....WOODY......`, 10, 0x0
 where_to_jump dq 0xffffffffffffffff
 
+
+
 _payload:
 	push rdx
 	mov rax, 1
