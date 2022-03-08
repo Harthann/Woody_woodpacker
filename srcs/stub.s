@@ -2,14 +2,14 @@ SECTION .TEXT
 	global _start_payload
 	global _end_payload
 	global where_to_jump
+	global key
 
 _start_payload:
 	call _payload 
 
-msg db `....WOODY......`, 10, 0x0
+msg db `....WOODY....`, 10, 0x0
 where_to_jump dq 0xffffffffffffffff
-
-
+key dq 0xffffffffffffffff
 
 _payload:
 	push rdx

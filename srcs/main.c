@@ -84,38 +84,44 @@ void	inject_code_into_file_given(t_file_informations *file_given, t_header_to_in
 	uint64_t offset_where_to_write = header_of_segment_to_inject->header.offset + header_of_segment_to_inject->header.memory_size;
 	char *where_to_write = &file_given->mmaped[offset_where_to_write];
 	uint64_t program_entry_origin = *(uint64_t*)&file_given->mmaped[0x18];
-	printf("%ld %ld %ld\n ", file_given->length, offset_where_to_write, program_entry_origin);
 	offset_where_to_write = header_of_segment_to_inject->header.virtual_addr + header_of_segment_to_inject->header.memory_size;
 	header_of_segment_to_inject->header.memory_size += size_payload;
 	header_of_segment_to_inject->header.file_size += size_payload;
 	header_of_segment_to_inject->header.flags |= 0x1;
 	uint64_t how_many_to_jump = (uint64_t)(program_entry_origin - offset_where_to_write);
+	void *position = 0;
+	uint64_t random_key = random();
+	printf("key generated is %lx\n", random_key);
 	while(size_payload--)
 	{
-		if ((void*)(_start_payload + size_payload) == (void*)&where_to_jump)
+		position = (void*)_start_payload + size_payload;
+		if ((position) == (void*)&where_to_jump)
 			*(uint64_t*)(&where_to_write[size_payload]) = how_many_to_jump;
+		else if (position == (void*)&key)
+			*(uint64_t*)(&where_to_write[size_payload]) = random_key;
 		else
 			where_to_write[size_payload] = ((char*)_start_payload)[size_payload];
 	}		
 	*(t_header_elf64*)header_of_segment_to_inject->address_of_header_in_mmaped_file_given = header_of_segment_to_inject->header;
 	*(uint64_t*)&file_given->mmaped[0x18] = (uint64_t)(offset_where_to_write);
 	printf("entry_program %lx, origin %lx, jump of %lx and should be %lx\n", *(uint64_t*)&file_given->mmaped[0x18], program_entry_origin, how_many_to_jump,program_entry_origin - *(uint64_t*)&file_given->mmaped[0x18]);
-	//manque d'ajouter la jump instruction pour continuer le deroulement normal du programme
 }
 
-/*
-uint64_t random() {
-	open("/dev/urandom", O_RONLY);
-
-
+uint64_t my_random() 
+{
+	int fd = open("/dev/urandom", O_RDONLY);
+	if (fd == -1)
+		return 0xC0FEEFEE;
+	char key[8];
+	read(fd, key, 8);
+	close(fd);
+	return (*(uint64_t*)key);
 }
-*/
 
 int main(int argc, char **argv)
 {
 	t_file_informations file_given;
 	int	size_payload;
-
 	size_payload = (_end_payload - _start_payload);
 	file_given.fd =	handle_init_error_or_return_fd(argc, argv);
 	file_given.length = get_the_file_length(file_given.fd);
