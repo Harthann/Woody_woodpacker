@@ -118,6 +118,38 @@ uint64_t my_random()
 	return (*(uint64_t*)key);
 }
 
+int	ft_strcmp(char *s1, char *s2)
+{
+	int i;
+
+	i = 0;
+	while (s1[i] == s2[i] && s1[i] != '\0')
+		i++;
+	return (s1[i] - s2[i]);
+}
+
+Elf64_Shdr find_header_of_text_section(t_file_informations *file_given)
+{
+	uint64_t offset_section_table = *(uint64_t*)&file_given->mmaped[0x28];
+	uint16_t number_of_section = *(uint16_t*)&file_given->mmaped[0x3c];
+	uint16_t index_of_the_section_header_table_entry_that_contains_the_section_names = *(uint16_t*)&file_given->mmaped[0x3e];
+	Elf64_Shdr header_of_section_name = *(Elf64_Shdr*)&file_given->mmaped[offset_section_table + sizeof(Elf64_Shdr) * index_of_the_section_header_table_entry_that_contains_the_section_names];
+	char *section_name = &file_given->mmaped[header_of_section_name.sh_offset];
+	Elf64_Shdr header_of_section = {0};
+	char *text = ".text";
+	char *tmp;
+	while (number_of_section--)
+	{
+		header_of_section = *(Elf64_Shdr*)&file_given->mmaped[offset_section_table + (sizeof(Elf64_Shdr) * number_of_section)];
+		tmp = &section_name[header_of_section.sh_name];
+		if (ft_strcmp(text, tmp) == 0)
+			return header_of_section;
+	}
+	printf("caca section\n");
+	return header_of_section;
+}
+
+
 int main(int argc, char **argv)
 {
 	t_file_informations file_given;
@@ -142,11 +174,12 @@ int main(int argc, char **argv)
 		return(1);
 	printf("we inject code into %dth section type\n", header_of_section_to_inject.header.type);
 	inject_code_into_file_given(&file_given, &header_of_section_to_inject, size_payload);
+	Elf64_Shdr coucou = find_header_of_text_section(&file_given);
 
 	int new_file_fd = open("./sample.new", O_RDWR | O_CREAT, 0777);
 	write(new_file_fd, file_given.mmaped, file_given.length);
 	close(new_file_fd);
-	
+
 	return (0);
 }
 
