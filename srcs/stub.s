@@ -16,13 +16,13 @@ _payload:
 	mov rax, 1
 	mov rdi, 1
 	lea rsi, [rel msg]
-	mov rdx, 16
+	mov rdx, 14
 	syscall
 	pop rdx
 	pop r12
 	mov rax, [rel where_to_jump]
 	add rax, r12
 	sub rax, 5
-	jmp rax	 
+	jmp rax
 
 _end_payload:

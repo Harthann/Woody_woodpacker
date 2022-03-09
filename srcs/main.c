@@ -142,6 +142,7 @@ Elf64_Shdr find_header_of_text_section(t_file_informations *file_given)
 	{
 		header_of_section = *(Elf64_Shdr*)&file_given->mmaped[offset_section_table + (sizeof(Elf64_Shdr) * number_of_section)];
 		tmp = &section_name[header_of_section.sh_name];
+		printf("%s\n", tmp);
 		if (ft_strcmp(text, tmp) == 0)
 			return header_of_section;
 	}
@@ -149,6 +150,16 @@ Elf64_Shdr find_header_of_text_section(t_file_informations *file_given)
 	return header_of_section;
 }
 
+/*
+void	cypher_section(Elf64_Shdr *header_to_cypher, uint64_t key)
+{
+	file_given->mmaped = header_to_cypher->offset
+
+
+
+
+}
+*/
 
 int main(int argc, char **argv)
 {
@@ -173,8 +184,9 @@ int main(int argc, char **argv)
 	if (header_of_section_to_inject.address_of_header_in_mmaped_file_given == NULL)
 		return(1);
 	printf("we inject code into %dth section type\n", header_of_section_to_inject.header.type);
+	Elf64_Shdr header_of_section_to_cypher = find_header_of_text_section(&file_given);
 	inject_code_into_file_given(&file_given, &header_of_section_to_inject, size_payload);
-	Elf64_Shdr coucou = find_header_of_text_section(&file_given);
+
 
 	int new_file_fd = open("./sample.new", O_RDWR | O_CREAT, 0777);
 	write(new_file_fd, file_given.mmaped, file_given.length);
