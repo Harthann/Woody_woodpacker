@@ -1,10 +1,6 @@
 #include <stdio.h>
 #include <woody.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <elf.h>
-#include <string.h>
+
 
 t_file load_file(char *path)
 {
@@ -32,7 +28,6 @@ t_payload *write_payload(t_file file, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr)
 	for (unsigned int i = 0; i < PAYLOAD_LEN; i++)
 		file.file[offset + i] = ((char*)_payload)[i];
 	payload->addr = (unsigned long)(ehdr->e_entry - (phdr->p_vaddr + phdr->p_memsz));
-///write(2, payload, PAYLOAD_LEN);
 
 	ehdr->e_entry = phdr->p_vaddr + phdr->p_memsz;
 	phdr->p_memsz += PAYLOAD_LEN;
@@ -61,7 +56,8 @@ void encrypt(char *str, unsigned int size, unsigned long key)
 {
 	for (unsigned int i = 0; i < 8; i++)
 	{
-		((unsigned long*)str)[i] = 'A';
+		str[i] = 'A';  
+		//((unsigned long*)str)[i] = 'A';
 	}
 
 	(void)str;
@@ -84,23 +80,10 @@ unsigned long random_key(void)
 	return key;
 }
 
-void elfinfo(t_file file)
+/* Searching segment with free space for injection using segment header */
+Elf64_Phdr 	*find_target_segment(Elf64_Phdr *phdr, Elf64_Ehdr *ehdr)
 {
-	Elf64_Ehdr 	*ehdr = NULL;	//	File header
-	Elf64_Phdr 	*phdr = NULL;	//	Program header
-	Elf64_Phdr 	*target = NULL;	//	Header of segment to inject
-	Elf64_Shdr 	*shdr = NULL;	//	Section header
-	char 		*shst = NULL;	//	Section header strings
-	t_payload   *payload = NULL;
-
-	ehdr = (Elf64_Ehdr*)file.file;
-	phdr = (Elf64_Phdr*)(file.file + ehdr->e_phoff);
-	shdr = (Elf64_Shdr*)(file.file + ehdr->e_shoff);
-	shst = (char *)(file.file + shdr[ehdr->e_shstrndx].sh_offset);
-
-	write(1, ehdr->e_ident, 4);
-	write(1, "\n", 1);
-
+	Elf64_Phdr *target;
 	/* Printing PT_LOAD section info */
 	printf("%8s | %8s | %8s | %7s | %7s | %7s\n", "id", "type", "offset", "filesz" ,"memsz", "space");
 	for (int i = 0; i < ehdr->e_phnum; i++)
@@ -113,34 +96,65 @@ void elfinfo(t_file file)
 		}
 	}
 	printf("\nSegment selected:\n%8.0d | %8x | %8lx | %7ld | %7ld\n", 0, target->p_type, target->p_offset, target->p_filesz ,target->p_memsz);
-	/* Writing payload inside target section */
-	payload = write_payload(file, ehdr, target);
 
-	/* Print sections info */
+	return target;
+}
+
+/* Find specific section section */
+Elf64_Shdr 	*find_section(Elf64_Shdr *shdr, int shnum, char *shst, char *section_name )
+{
 	printf("Sections info:\n%20s | %15s | %15s | %15s | %15s\n", "name", "type", "offset", "size" ,"addr");
-	for (int i = 0; i < ehdr->e_shnum; i++)
+	for (int i = 0; i < shnum; i++)
 	{
-		//printf("%8s\n",  shst[shdr[i].sh_name]);
 		printf("%20s | %10x | %15lx | %15lx | %15lx\n", shst + shdr[i].sh_name, shdr[i].sh_type, shdr[i].sh_offset, shdr[i].sh_size, shdr[i].sh_addr);
-		if (strcmp(shst + shdr[i].sh_name, ".text") == 0)
+		if (strcmp(shst + shdr[i].sh_name, section_name) == 0)
 		{
-			//encrypt 
-			payload->key = random_key();
-			encrypt(file.file + shdr[i].sh_offset, shdr[i].sh_size, payload->key);
-			payload->encrypt_offset = shdr[i].sh_addr;
-			payload->text_len = shdr[i].sh_size;
+			printf("Found .text at offset: %lx\n", shdr[i].sh_offset);
+			return shdr + i;
 		}
-
 	}
-	/* Encrypt .text section */
+
+	return NULL;
+}
+
+/* Analyze elf then inject code
+ * Return -1 on failure
+ * Return 0 on success
+*/
+int code_inject(t_file file)
+{
+	Elf64_info 	info;
+	Elf64_Shdr 	*text_section;
+	t_payload   *payload = NULL;
+
+	/* Gathering elf info */
+	info.ehdr = (Elf64_Ehdr*)file.file;
+	info.phdr = (Elf64_Phdr*)(file.file + info.ehdr->e_phoff);
+	info.shdr = (Elf64_Shdr*)(file.file + info.ehdr->e_shoff);
+	info.shst = (char *)(file.file + info.shdr[info.ehdr->e_shstrndx].sh_offset);
+	info.old_entry = info.ehdr->e_entry;
+	printf("Old entry addr %lx\n", info.old_entry);
+
+	info.starget = find_target_segment(info.phdr, info.ehdr);
+	if (info.starget == NULL)
+		return -1;
+
+	/* Writing payload inside target section */
+	payload = write_payload(file, info.ehdr, info.starget);
+
+	text_section = find_section(info.shdr, info.ehdr->e_shnum, info.shst ,".text");
+	payload->key = random_key();
+	encrypt(file.file + text_section->sh_offset, text_section->sh_size, payload->key);
+	payload->encrypt_offset = text_section->sh_addr - info.old_entry;
+	payload->text_len = text_section->sh_size;
 
 	/* Log payload to debug	*/
 	int logfd = open("paylog", O_CREAT | O_WRONLY | O_TRUNC, 0667);
 	write(logfd, (char*)payload, sizeof(t_payload));
 
-
 	/* Create file and writing our packed binary */
 	create_file(file);
+	return 0;
 }
 
 int main(int ac, char **av)
@@ -159,7 +173,7 @@ int main(int ac, char **av)
 		write(2, "Failed to load file\n",20);
 		return 0;
 	}
-	elfinfo(file);
+	code_inject(file);
 	munmap(file.file, file.size); 
 	return 0;
 }
