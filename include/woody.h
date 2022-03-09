@@ -2,6 +2,7 @@
 #define WOODY_H
 
 #include <stdint.h>
+#include <elf.h>
 
 
 extern void _start_payload(void);
@@ -24,6 +25,10 @@ typedef struct 	s_header_elf64	{
 	uint64_t	        memory_size;
 	uint64_t	        align;
 } 		t_header_elf64;
+
+
+
+
 
 typedef struct	s_header_to_inject {
 	char							*address_of_header_in_mmaped_file_given;
