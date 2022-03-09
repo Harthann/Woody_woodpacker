@@ -79,7 +79,7 @@ t_header_to_inject choose_which_section_to_inject_by_reading_file_header(t_file_
 	return (no_segment_to_inject);
 }
 
-void	inject_code_into_file_given(t_file_informations *file_given, t_header_to_inject *header_of_segment_to_inject, int size_payload)
+void	inject_code_into_file_given(t_file_informations *file_given, t_header_to_inject *header_of_segment_to_inject, int size_payload, t_things_to_write_into_binary *struct_to_write)
 {
 	uint64_t offset_where_to_write = header_of_segment_to_inject->header.offset + header_of_segment_to_inject->header.memory_size;
 	char *where_to_write = &file_given->mmaped[offset_where_to_write];
@@ -90,15 +90,11 @@ void	inject_code_into_file_given(t_file_informations *file_given, t_header_to_in
 	header_of_segment_to_inject->header.flags |= 0x1;
 	uint64_t how_many_to_jump = (uint64_t)(program_entry_origin - offset_where_to_write);
 	void *position = 0;
-	uint64_t random_key = random();
-	printf("key generated is %lx\n", random_key);
 	while(size_payload--)
 	{
 		position = (void*)_start_payload + size_payload;
 		if ((position) == (void*)&where_to_jump)
-			*(uint64_t*)(&where_to_write[size_payload]) = how_many_to_jump;
-		else if (position == (void*)&key)
-			*(uint64_t*)(&where_to_write[size_payload]) = random_key;
+			*(t_things_to_write_into_binary*)(&where_to_write[size_payload]) = *struct_to_write;
 		else
 			where_to_write[size_payload] = ((char*)_start_payload)[size_payload];
 	}		
@@ -150,22 +146,24 @@ Elf64_Shdr find_header_of_text_section(t_file_informations *file_given)
 	return header_of_section;
 }
 
-/*
-void	cypher_section(Elf64_Shdr *header_to_cypher, uint64_t key)
+void	cypher_section(t_file_informations *file_given, Elf64_Shdr *header_to_cypher, uint64_t key)
 {
-	file_given->mmaped = header_to_cypher->offset
 
+	char *to_cypher = &file_given->mmaped[header_to_cypher->sh_offset];
+	int i = 0;
 
-
-
+	while(i < header_to_cypher->sh_size)
+	{
+		*(uint64_t*)&to_cypher[i] ^= key;
+		i += sizeof(uint64_t);
+	}
 }
-*/
 
 int main(int argc, char **argv)
 {
 	t_file_informations file_given;
-	int	size_payload;
-	size_payload = (_end_payload - _start_payload);
+	int	size_payload = (_end_payload - _start_payload);
+	t_things_to_write_into_binary things_to_change_in_stub = {0};
 	file_given.fd =	handle_init_error_or_return_fd(argc, argv);
 	file_given.length = get_the_file_length(file_given.fd);
 	file_given.mmaped = (char*)mmap(
@@ -176,6 +174,7 @@ int main(int argc, char **argv)
 			file_given.fd, 				
 			0); 				//offset
 	close(file_given.fd);
+	things_to_change_in_stub.key = random();
 	if (file_given.mmaped == NULL || file_given.length == 0)
 		return(1);
 	if (is_this_an_elf64_file(&file_given) == NO)
@@ -185,9 +184,11 @@ int main(int argc, char **argv)
 		return(1);
 	printf("we inject code into %dth section type\n", header_of_section_to_inject.header.type);
 	Elf64_Shdr header_of_section_to_cypher = find_header_of_text_section(&file_given);
-	inject_code_into_file_given(&file_given, &header_of_section_to_inject, size_payload);
+	things_to_change_in_stub.offset_of_section = header_of_section_to_cypher.sh_offset
+	things_to_change_in_stub.size_of_section = header_of_section_to_cypher.sh_size
 
-
+	cypher_section(&file_given, &header_of_section_to_cypher, things_to_change_in_stub.key);
+	inject_code_into_file_given(&file_given, &header_of_section_to_inject, size_payload, &things_to_change_in_stub);
 	int new_file_fd = open("./sample.new", O_RDWR | O_CREAT, 0777);
 	write(new_file_fd, file_given.mmaped, file_given.length);
 	close(new_file_fd);
