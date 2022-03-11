@@ -89,6 +89,7 @@ void	inject_code_into_file_given(t_file_informations *file_given, t_header_to_in
 	header_of_segment_to_inject->header.file_size += size_payload;
 	header_of_segment_to_inject->header.flags |= 0x1;
 	uint64_t how_many_to_jump = (uint64_t)(program_entry_origin - offset_where_to_write);
+	struct_to_write->where_to_jump = how_many_to_jump;
 	void *position = 0;
 	while(size_payload--)
 	{
@@ -131,19 +132,24 @@ Elf64_Shdr find_header_of_text_section(t_file_informations *file_given)
 	uint16_t index_of_the_section_header_table_entry_that_contains_the_section_names = *(uint16_t*)&file_given->mmaped[0x3e];
 	Elf64_Shdr header_of_section_name = *(Elf64_Shdr*)&file_given->mmaped[offset_section_table + sizeof(Elf64_Shdr) * index_of_the_section_header_table_entry_that_contains_the_section_names];
 	char *section_name = &file_given->mmaped[header_of_section_name.sh_offset];
-	Elf64_Shdr header_of_section = {0};
+	Elf64_Shdr *header_of_section = NULL;
 	char *text = ".text";
 	char *tmp;
 	while (number_of_section--)
 	{
-		header_of_section = *(Elf64_Shdr*)&file_given->mmaped[offset_section_table + (sizeof(Elf64_Shdr) * number_of_section)];
-		tmp = &section_name[header_of_section.sh_name];
-		printf("%s\n", tmp);
+		header_of_section = (Elf64_Shdr*)&file_given->mmaped[offset_section_table + (sizeof(Elf64_Shdr) * number_of_section)];
+		tmp = &section_name[header_of_section->sh_name];
+	//	header_of_section->sh_flags |= SHF_COMPRESSED;
+	//	https://android.googlesource.com/platform/external/elfutils/+/android-7.0.0_r1/libelf/libelf.h
+	//	ligne 314
 		if (ft_strcmp(text, tmp) == 0)
-			return header_of_section;
+		{
+			header_of_section->sh_flags |= 0x1;
+			return *header_of_section;
+		}
 	}
 	printf("caca section\n");
-	return header_of_section;
+	return *header_of_section;
 }
 
 void	cypher_section(t_file_informations *file_given, Elf64_Shdr *header_to_cypher, uint64_t key)
@@ -184,9 +190,9 @@ int main(int argc, char **argv)
 		return(1);
 	printf("we inject code into %dth section type\n", header_of_section_to_inject.header.type);
 	Elf64_Shdr header_of_section_to_cypher = find_header_of_text_section(&file_given);
-	things_to_change_in_stub.offset_of_section = header_of_section_to_cypher.sh_offset
-	things_to_change_in_stub.size_of_section = header_of_section_to_cypher.sh_size
-
+	things_to_change_in_stub.offset_of_section = (uint64_t)_start_payload - header_of_section_to_cypher.sh_addr;
+	things_to_change_in_stub.size_of_section = header_of_section_to_cypher.sh_size;
+	
 	cypher_section(&file_given, &header_of_section_to_cypher, things_to_change_in_stub.key);
 	inject_code_into_file_given(&file_given, &header_of_section_to_inject, size_payload, &things_to_change_in_stub);
 	int new_file_fd = open("./sample.new", O_RDWR | O_CREAT, 0777);
