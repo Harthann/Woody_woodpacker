@@ -141,16 +141,15 @@ Elf64_Shdr find_header_of_text_section(t_file_informations *file_given)
 	{
 		header_of_section = (Elf64_Shdr*)&file_given->mmaped[offset_section_table + (sizeof(Elf64_Shdr) * number_of_section)];
 		tmp = &section_name[header_of_section->sh_name];
-	//	header_of_section->sh_flags |= SHF_COMPRESSED;
-	//	https://android.googlesource.com/platform/external/elfutils/+/android-7.0.0_r1/libelf/libelf.h
-	//	ligne 314
+		//	header_of_section->sh_flags |= SHF_COMPRESSED;
+		//	https://android.googlesource.com/platform/external/elfutils/+/android-7.0.0_r1/libelf/libelf.h
+		//	ligne 314
 		if (ft_strcmp(text, tmp) == 0)
 		{
 			header_of_section->sh_flags |= 0x1;
 			return *header_of_section;
 		}
 	}
-	printf("caca section\n");
 	return *header_of_section;
 }
 
@@ -168,6 +167,40 @@ void	cypher_section(t_file_informations *file_given, Elf64_Shdr *header_to_cyphe
 	}
 }
 
+char get_to_know_if_file_is_cut(t_file_informations *file_given)
+{
+	t_header_elf64 *header_segment;
+	int segment_number = -1;
+
+	while (segment_number < file_given->number_of_headers)
+	{
+		header_segment = (t_header_elf64 *)get_address_of_header_segment_in_mmaped_file_given_with_his_number(file_given, segment_number); 
+		if (header_segment->offset + header_segment->file_size > file_given->length)
+			return YES;
+
+	}
+	return NO;
+}
+
+char error_in_start_up(t_file_informations *file_given) {
+	if (file_given->mmaped == NULL || file_given->length == 0)
+	{
+		printf("file empty or no allocation possible\n");
+		return(YES);
+	}
+	if (is_this_an_elf64_file(file_given) == NO)
+	{
+		printf("wrong file type\n");
+		return(YES);
+	}
+	if (get_to_know_if_file_is_cut(file_given) == YES)
+	{
+		printf("file been cut\n");
+		return (YES);
+	}
+	return NO;
+}
+
 int main(int argc, char **argv)
 {
 	t_file_informations file_given;
@@ -183,12 +216,13 @@ int main(int argc, char **argv)
 			file_given.fd, 				
 			0); 				//offset
 	close(file_given.fd);
+	if (error_in_start_up(&file_given) == YES && file_given.mmaped != NULL)
+	{
+		munmap(file_given.mmaped, file_given.length);
+		return (1);
+	}
 	things_to_change_in_stub.key = random();
-	printf("key to decipher .text section %lx", things_to_change_in_stub.key);
-	if (file_given.mmaped == NULL || file_given.length == 0)
-		return(1);
-	if (is_this_an_elf64_file(&file_given) == NO)
-		return(1);
+	printf("key to decipher .text section 0x%lx\n", things_to_change_in_stub.key);
 	t_header_to_inject header_of_section_to_inject = choose_which_segment_to_inject_by_reading_file_header(&file_given, size_payload);
 	if (header_of_section_to_inject.address_of_header_in_mmaped_file_given == NULL)
 		return(1);
@@ -196,7 +230,7 @@ int main(int argc, char **argv)
 	Elf64_Shdr header_of_section_to_cypher = find_header_of_text_section(&file_given);
 	things_to_change_in_stub.offset_of_section = header_of_section_to_cypher.sh_addr;
 	things_to_change_in_stub.size_of_section = header_of_section_to_cypher.sh_size;
-	
+
 	cypher_section(&file_given, &header_of_section_to_cypher, things_to_change_in_stub.key);
 	inject_code_into_file_given(&file_given, &header_of_section_to_inject, size_payload, &things_to_change_in_stub);
 	int new_file_fd = open("./sample.new", O_RDWR | O_CREAT, 0777);
