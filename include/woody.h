@@ -30,6 +30,7 @@ typedef struct s_things_to_write_into_binary {
 	uint64_t key;
 	uint64_t size_of_section;
 	uint64_t offset_of_section;
+	uint64_t offset_where_to_write;
 } __attribute__((__packed__)) t_things_to_write_into_binary;
 
 

@@ -91,6 +91,7 @@ void	inject_code_into_file_given(t_file_informations *file_given, t_header_to_in
 	header_of_segment_to_inject->header.flags |= PF_X;
 	uint64_t how_many_to_jump = (uint64_t)(program_entry_origin - offset_where_to_write);
 	struct_to_write->where_to_jump = how_many_to_jump;
+	struct_to_write->offset_where_to_write = offset_where_to_write;
 	void *position = 0;
 	while(size_payload--)
 	{
@@ -183,6 +184,7 @@ int main(int argc, char **argv)
 			0); 				//offset
 	close(file_given.fd);
 	things_to_change_in_stub.key = random();
+	printf("key to decipher .text section %lx", things_to_change_in_stub.key);
 	if (file_given.mmaped == NULL || file_given.length == 0)
 		return(1);
 	if (is_this_an_elf64_file(&file_given) == NO)
@@ -192,8 +194,6 @@ int main(int argc, char **argv)
 		return(1);
 	printf("we inject code into %dth section type\n", header_of_section_to_inject.header.type);
 	Elf64_Shdr header_of_section_to_cypher = find_header_of_text_section(&file_given);
-	//start payload is the adress where it is right now
-	//sh_addr is the adress in file given where the section is at run
 	things_to_change_in_stub.offset_of_section = header_of_section_to_cypher.sh_addr;
 	things_to_change_in_stub.size_of_section = header_of_section_to_cypher.sh_size;
 	

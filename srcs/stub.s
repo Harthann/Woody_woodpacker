@@ -12,6 +12,7 @@ where_to_jump dq 0xffffffffffffffff
 key dq 0xffffffffffffffff
 size_of_section dq 0xffffffffffffffff
 offset_of_section dq 0xffffffffffffffff
+offset_where_to_write dq 0xffffffffffffffff
 
 _payload:
 	pop r8
@@ -27,12 +28,16 @@ setup_decrypt:
 	mov r11, [rel key]
 	mov rdi, [rel offset_of_section]
 	mov rsi, [rel size_of_section]
-	mov r12, rsi
-	add r12, rdi
+	mov r10, [rel offset_where_to_write]
+	mov r12, r8
+	sub r12, r10
+	add rdi, r12
+	add rsi, rdi
+	
 decrypt:		
 	xor [rdi], r11
 	add rdi, 8
-	cmp rdi, r12
+	cmp rdi, rsi
 	jng decrypt	
 
 	pop rdx
