@@ -25,7 +25,7 @@ _payload:
 
 setup_decrypt:
 	mov r11, [rel key]
-	lea rdi, [rel offset_of_section]
+	mov rdi, [rel offset_of_section]
 	mov rsi, [rel size_of_section]
 	mov r12, rsi
 	add r12, rdi

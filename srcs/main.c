@@ -46,7 +46,7 @@ char is_this_an_elf64_file(t_file_informations *file_given) {
 	return NO;
 }
 
-int	is_there_a_place_beetween_those_two_section_to_put_my_payload(t_header_elf64 *first, t_header_elf64 *second, int size_payload)
+int	is_there_a_place_beetween_those_two_segment_to_put_my_payload(t_header_elf64 *first, t_header_elf64 *second, int size_payload)
 {
 	return ((second->offset - (first->offset + first->memory_size)) >= size_payload);
 }
@@ -56,25 +56,26 @@ char *get_address_of_header_segment_in_mmaped_file_given_with_his_number(t_file_
 	return (&file_given->mmaped[offset_where_headers_start + sizeof(t_header_elf64) * number]);
 }
 
-t_header_to_inject choose_which_section_to_inject_by_reading_file_header(t_file_informations *file_given, int size_payload)
+t_header_to_inject choose_which_segment_to_inject_by_reading_file_header(t_file_informations *file_given, int size_payload)
 {
 	int counter = -1;
 	t_header_elf64 last_header = {0};
-	t_header_elf64 current_readed_header = {0};
+	t_header_elf64 *current_readed_header = NULL;
 	t_header_to_inject no_segment_to_inject = {NO};
 	file_given->number_of_headers = (uint16_t)file_given->mmaped[0x38];
 	while(++counter < file_given->number_of_headers)
 	{
-		current_readed_header = *(t_header_elf64*)get_address_of_header_segment_in_mmaped_file_given_with_his_number(file_given, counter);
-		if (current_readed_header.type == last_header.type)
-			if (is_there_a_place_beetween_those_two_section_to_put_my_payload(&last_header, &current_readed_header, size_payload))
+		current_readed_header = (t_header_elf64*)get_address_of_header_segment_in_mmaped_file_given_with_his_number(file_given, counter);
+		if (current_readed_header->type == last_header.type)
+			if (is_there_a_place_beetween_those_two_segment_to_put_my_payload(&last_header, current_readed_header, size_payload))
 			{
+				current_readed_header->flags |=  PF_W;
 				t_header_to_inject header_to_inject;
 				header_to_inject.header = last_header;
 				header_to_inject.address_of_header_in_mmaped_file_given = get_address_of_header_segment_in_mmaped_file_given_with_his_number(file_given, counter - 1);
 				return header_to_inject;
 			}
-		last_header = current_readed_header;
+		last_header = *current_readed_header;
 	}
 	return (no_segment_to_inject);
 }
@@ -87,7 +88,7 @@ void	inject_code_into_file_given(t_file_informations *file_given, t_header_to_in
 	offset_where_to_write = header_of_segment_to_inject->header.virtual_addr + header_of_segment_to_inject->header.memory_size;
 	header_of_segment_to_inject->header.memory_size += size_payload;
 	header_of_segment_to_inject->header.file_size += size_payload;
-	header_of_segment_to_inject->header.flags |= 0x1;
+	header_of_segment_to_inject->header.flags |= PF_X;
 	uint64_t how_many_to_jump = (uint64_t)(program_entry_origin - offset_where_to_write);
 	struct_to_write->where_to_jump = how_many_to_jump;
 	void *position = 0;
@@ -156,6 +157,7 @@ void	cypher_section(t_file_informations *file_given, Elf64_Shdr *header_to_cyphe
 {
 
 	char *to_cypher = &file_given->mmaped[header_to_cypher->sh_offset];
+	printf("cypher at %lx\n",header_to_cypher->sh_offset);
 	int i = 0;
 
 	while(i < header_to_cypher->sh_size)
@@ -185,12 +187,14 @@ int main(int argc, char **argv)
 		return(1);
 	if (is_this_an_elf64_file(&file_given) == NO)
 		return(1);
-	t_header_to_inject header_of_section_to_inject = choose_which_section_to_inject_by_reading_file_header(&file_given, size_payload);
+	t_header_to_inject header_of_section_to_inject = choose_which_segment_to_inject_by_reading_file_header(&file_given, size_payload);
 	if (header_of_section_to_inject.address_of_header_in_mmaped_file_given == NULL)
 		return(1);
 	printf("we inject code into %dth section type\n", header_of_section_to_inject.header.type);
 	Elf64_Shdr header_of_section_to_cypher = find_header_of_text_section(&file_given);
-	things_to_change_in_stub.offset_of_section = (uint64_t)_start_payload - header_of_section_to_cypher.sh_addr;
+	//start payload is the adress where it is right now
+	//sh_addr is the adress in file given where the section is at run
+	things_to_change_in_stub.offset_of_section = header_of_section_to_cypher.sh_addr;
 	things_to_change_in_stub.size_of_section = header_of_section_to_cypher.sh_size;
 	
 	cypher_section(&file_given, &header_of_section_to_cypher, things_to_change_in_stub.key);
