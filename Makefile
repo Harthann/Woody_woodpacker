@@ -29,7 +29,7 @@ rouge=\033[31m
 #####################
 NAME = woody_woodpacker
 
-SRC_FILE = main.c	
+SRC_FILE = main.c Elfind.c file_handler.c	
 SRC_ASM = stub.s
 
 #############################
@@ -68,6 +68,11 @@ $(NAME) : ${OBJ}
 	@echo "${vertclair}Creating ${NAME}"
 	@gcc ${FLAGS} ${OPT_FLAGS} -I include  ${OBJ} -o ${NAME}
 	@echo "${vertclair}[Woody ready to pack]"
+
+debug: extend_flags re
+
+extend_flags:
+	$(eval FLAGS += $(SAN))
 
 sanitize : ${LIBS} ${OBJ} ${INCLUDE} 
 	@echo "${vertclair}Creating ${NAME}"
