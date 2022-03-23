@@ -52,3 +52,7 @@ Mkfile.old
 dkms.conf
 *swp
 woody
+paylog
+woody_woodpacker
+gcc
+ls
