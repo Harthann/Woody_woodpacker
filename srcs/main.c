@@ -33,34 +33,19 @@ void    block_encrypt( uint32_t v[2], const uint32_t k[4])
 
 void encrypt(char *str, unsigned int size, t_payload *pay)
 {
-    /*  For test purpose    */
-    //char text[] = "This text is only for testing the algorithm and the implementation of it with ";
-    //for (int i = 0; i < 80; i++)
-    //    pay->tmp[i] = text[i];
 
-    //str = pay->tmp;
-    //size = strlen(str);
-    write(2, str, 8);
     if (size % 8 != 0)
         size += 8 - (size % 8);
-    printf("Text size: %u\n", size);
-    int fd = open("encrypted", O_WRONLY | O_CREAT | O_TRUNC, 0600);
-
     uint32_t k[4] = {
         ((uint32_t*)pay->key)[0],
         ((uint32_t*)pay->key)[1],
         ((uint32_t*)pay->key)[2],
         ((uint32_t*)pay->key)[3]
     }; 
-    (void)k;
 
     pay->blocks = size / 8;
-    //for (unsigned int i = 0; i < pay->blocks; i++)
-    //    block_encrypt((uint32_t*)(str + i * 8), k);
-    
-    write(fd, str, size);
-    //pay->tmp[0] = v0;
-    //pay->tmp[1] = v1;
+    for (unsigned int i = 0; i < pay->blocks; i++)
+        block_encrypt((uint32_t*)(str + i * 8), k);
 }
 
 
@@ -95,7 +80,6 @@ int code_inject(t_file file)
 	payload->key[1] = random_key();
 	encrypt(file.file + text_section->sh_offset, text_section->sh_size, payload);
     payload->encrypt_offset = text_section->sh_addr - info.old_entry;
-//	payload->text_len = text_section->sh_size;
 
 	/* Log payload to debug	*/
 	int logfd = open("paylog", O_CREAT | O_WRONLY | O_TRUNC, 0667);

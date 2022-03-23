@@ -39,7 +39,7 @@ void create_file(t_file file)
 {
 	int fd;
 
-	fd = open("woody", O_CREAT | O_WRONLY | O_TRUNC, 0667);
+	fd = open("woody", O_CREAT | O_WRONLY | O_TRUNC, 0755);
 	if (fd > 0)
 	{
 		printf("Opened file with fd: %d\n", fd);

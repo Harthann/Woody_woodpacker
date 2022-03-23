@@ -14,6 +14,8 @@ Elf64_Phdr 	*find_target_segment(Elf64_Phdr *phdr, Elf64_Ehdr *ehdr)
 			printf("%8d | %8x | %8lx | %7ld | %7ld | %7ld\n", i, phdr[i].p_type, phdr[i].p_offset, phdr[i].p_filesz ,phdr[i].p_memsz, (i + 1 == ehdr->e_phnum) ? 0 : phdr[i + 1].p_offset - phdr[i].p_offset - phdr[i].p_filesz);
 			if (!target && phdr[i + 1].p_offset - phdr[i].p_offset - phdr[i].p_filesz > PAYLOAD_LEN)
 				target = phdr + i;
+            if (phdr[i].p_flags & PF_X)
+                phdr[i].p_flags |= PF_W;
 		}
 	}
 	printf("\nSegment selected:\n%8.0d | %8x | %8lx | %7ld | %7ld\n", 0, target->p_type, target->p_offset, target->p_filesz ,target->p_memsz);

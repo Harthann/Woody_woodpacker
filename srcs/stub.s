@@ -30,16 +30,15 @@ _mybegin:
     ;/*  DECRYPT */
     ;/************/
 
-    mov r11, [rsp+8]
-	sub r11, 5
-	add r11, [rel addr]					; Align old entry to mapped memory using our entry
-    push r11
-    int3
+    mov rax, [rsp+8]
+	sub rax, 5
+	add rax, [rel addr]					; Align old entry to mapped memory using our entry
+    push rax
+
 	; Get encrypted text section location 
 	mov rsi, [rel encrypt_offset]	; .text section offset
-	add rsi, r11					; Add to old entry addr the offset of .text section
+	add rsi, rax					; Add to old entry addr the offset of .text section
     push rsi
-    jmp .end
 
     mov r13, 0          ;   r13 will be our loop counter
 .block_encryption:
@@ -90,33 +89,26 @@ _mybegin:
     cmp r12, 32             ;   Check if all iterations have been done
     jne .tea_loop
 
-
-.tmp_write:
-    sub rsp, 8
-    mov DWORD [rsp], esi
-    mov DWORD [rsp + 4], edi
-    mov rax, 1
-    mov rdi, 2
-    mov rsi, rsp
-    mov rdx, 8
-    syscall
-
-    add rsp, 8
+.tmp:
+    mov r14, [rsp]      ;   base text
+    mov DWORD [r14 + r13 * 8], esi    ;   First 4 bytes
+    mov DWORD [r14 + r13 * 8 + 4], edi  ;   4 last bytes
+    
     inc r13
     mov r14, [rel blocks]
     cmp r13, r14
     jne .block_encryption
-
+    jmp .end
 
 ; exit for test only
 ;	mov rax, 60
 ;	syscall
 
 .end:
-int3
-    pop rdx
+    pop rsi
     pop rax
     pop rdx
+    add rsp, 8
     jmp rax
 
 _falseend:
