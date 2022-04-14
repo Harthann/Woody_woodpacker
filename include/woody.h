@@ -25,22 +25,25 @@ typedef struct {
 	unsigned long	addr;
 	long long       key[2];
 	unsigned long	encrypt_offset;
-//    char            tmp[80];
 	unsigned long	blocks;
+	size_t			pagelen;
+	size_t 			pagediff;
 	char			msg[16];
 	char			shellcode[SHELLCODE_LEN];
 }	__attribute__((packed))				t_payload;
 
 typedef struct {
 	/* Elf file headers */
-	Elf64_Ehdr	*ehdr;			// File header
-	Elf64_Phdr	*phdr;			// Program header
-	Elf64_Shdr	*shdr;			// Section header
-	char 		*shst;			// Section header strings
+	Elf64_Ehdr		*ehdr;			// File header
+	Elf64_Phdr		*phdr;			// Program header
+	Elf64_Shdr		*shdr;			// Section header
+	char 			*shst;			// Section header strings
 
 	/* Injection info */
-	Elf64_Phdr 	*starget;		// Header of segment to inject
-	unsigned long old_entry;	// Old entrypoint
+	Elf64_Phdr 		*starget;		// Header of segment to inject
+	unsigned long 	old_entry;	// Old entrypoint
+	size_t 			pagediff;
+	size_t 			pagelen;
 } Elf64_info;
 
 /************************/
@@ -48,7 +51,7 @@ typedef struct {
 /************************/
 
 /*      Elfind.c   */
-Elf64_Phdr 	*find_target_segment(Elf64_Phdr *phdr, Elf64_Ehdr *ehdr);
+Elf64_Phdr 	*find_target_segment(Elf64_Phdr *phdr, Elf64_Ehdr *ehdr, size_t *pagediff, size_t *pagelen);
 Elf64_Shdr 	*find_section(Elf64_Shdr *shdr, int shnum, char *shst, char *section_name );
 
 /*      file_handler.c    */

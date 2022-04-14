@@ -1,9 +1,9 @@
 #include "woody.h"
 
 /* Searching segment with free space for injection using segment header */
-Elf64_Phdr 	*find_target_segment(Elf64_Phdr *phdr, Elf64_Ehdr *ehdr)
+Elf64_Phdr 	*find_target_segment(Elf64_Phdr *phdr, Elf64_Ehdr *ehdr, size_t *pagediff, size_t *pagelen)
 {
-	Elf64_Phdr *target;
+	Elf64_Phdr *target = NULL;
 	/* Printing PT_LOAD section info */
 	printf("%8s | %8s | %8s | %7s | %7s | %7s\n",
         "id", "type", "offset", "filesz", "memsz", "space");
@@ -13,9 +13,19 @@ Elf64_Phdr 	*find_target_segment(Elf64_Phdr *phdr, Elf64_Ehdr *ehdr)
 		{
 			printf("%8d | %8x | %8lx | %7ld | %7ld | %7ld\n", i, phdr[i].p_type, phdr[i].p_offset, phdr[i].p_filesz ,phdr[i].p_memsz, (i + 1 == ehdr->e_phnum) ? 0 : phdr[i + 1].p_offset - phdr[i].p_offset - phdr[i].p_filesz);
 			if (!target && phdr[i + 1].p_offset - phdr[i].p_offset - phdr[i].p_filesz > PAYLOAD_LEN)
-				target = phdr + i;
+			{
+					target = phdr + i;
+			}
             if (phdr[i].p_flags & PF_X)
-                phdr[i].p_flags |= PF_W;
+			{
+				//target = phdr + i;
+				*pagediff = target->p_memsz - (phdr[i].p_vaddr - target->p_vaddr);
+				*pagelen = phdr[i].p_memsz;
+				if (target == phdr + i)
+						*pagelen += PAYLOAD_LEN;
+				phdr[i].p_flags ^= PF_X;
+                //phdr[i].p_flags |= PF_W;
+			}
 		}
 	}
 	printf("\nSegment selected:\n%8.0d | %8x | %8lx | %7ld | %7ld\n", 0, target->p_type, target->p_offset, target->p_filesz ,target->p_memsz);
