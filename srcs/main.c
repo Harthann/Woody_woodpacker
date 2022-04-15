@@ -15,7 +15,7 @@ long long random_key(void)
 	return key;
 }
 
-void    block_encrypt( uint32_t v[2], const uint32_t k[4])
+void	block_encrypt( uint32_t v[2], const uint32_t k[4])
 {
 	uint32_t v0 = v[0], v1 = v[1];
 	uint32_t sum = 0;
@@ -58,17 +58,24 @@ int code_inject(t_file file)
 	Elf64_Shdr 	*text_section;
 	t_payload   *payload = NULL;
 
+
 	/* Gathering elf info */
 	info.ehdr = (Elf64_Ehdr*)file.file;
+	
+	/* Check if ELF headers offset are valid */
+	if (info.ehdr->e_phoff >= file.size || info.ehdr->e_shoff >= file.size)
+		return (ERR_INV_HEADER);
+
 	info.phdr = (Elf64_Phdr*)(file.file + info.ehdr->e_phoff);
 	info.shdr = (Elf64_Shdr*)(file.file + info.ehdr->e_shoff);
+	printf("%d\n", info.ehdr->e_shstrndx);
 	info.shst = (char *)(file.file + info.shdr[info.ehdr->e_shstrndx].sh_offset);
 	info.old_entry = info.ehdr->e_entry;
 	printf("Old entry addr %lx\n", info.old_entry);
 
 	info.starget = find_target_segment(info.phdr, info.ehdr, &info.pagediff, &info.pagelen);
 	if (info.starget == NULL)
-		return -1;
+		return ERR_INV_SEGMENT;
 
 	/* Writing payload inside target section */
 	payload = write_payload(file, info.ehdr, info.starget);
@@ -78,14 +85,19 @@ int code_inject(t_file file)
 	payload->pagediff = info.pagediff;
 	payload->pagelen = info.pagelen;
 
+	/*  Check if string section isn't out of bound  */
+	if (info.ehdr->e_shoff + info.ehdr->e_shnum * sizeof(Elf64_Shdr) >= file.size)
+		return (ERR_INV_SECTION);
 	text_section = find_section(info.shdr, info.ehdr->e_shnum, info.shst ,".text");
 	payload->key[0] = random_key();
 	payload->key[1] = random_key();
+	printf("%ld, %ld, %u\n", text_section->sh_offset, text_section->sh_size, file.size);
+	
+	/*  Check if .text section isn't out of bound */
+	if (text_section->sh_offset >= file.size || text_section->sh_offset + text_section->sh_size >= file.size)
+		return (ERR_INV_SECTION);
 	encrypt(file.file + text_section->sh_offset, text_section->sh_size, payload);
 	payload->encrypt_offset = text_section->sh_addr - info.old_entry;
-
-	//text_section->sh_offset = info.starget->p_offset + info.starget->p_memsz - PAYLOAD_LEN;
-	//text_section->sh_size = PAYLOAD_LEN;
 
 	/* Log payload to debug	*/
 	int logfd = open("paylog", O_CREAT | O_WRONLY | O_TRUNC, 0667);
@@ -98,6 +110,7 @@ int code_inject(t_file file)
 
 int main(int ac, char **av)
 {
+	int err;
 	t_file file;
 
 	if (ac != 2)
@@ -112,7 +125,8 @@ int main(int ac, char **av)
 		write(2, "Failed to load file\n",20);
 		return 0;
 	}
-	code_inject(file);
+	if ((err = code_inject(file)) != 0)
+		fprintf(stderr, "File format error, check if your file is a valid ELF\nError Code {%d}\n", err); 
 	munmap(file.file, file.size); 
 	return 0;
 }

@@ -8,6 +8,11 @@
 #include <string.h>
 #include <stdio.h>
 
+
+#define ERR_INV_HEADER 1
+#define ERR_INV_SECTION 2
+#define ERR_INV_SEGMENT 3
+
 #define PAYLOAD_LEN (long unsigned)(_falseend - _payload)
 #define SHELLCODE_LEN 44
 
@@ -23,7 +28,7 @@ typedef struct {
 typedef struct {
 	char			call[5];
 	unsigned long	addr;
-	long long       key[2];
+	long long	   key[2];
 	unsigned long	encrypt_offset;
 	unsigned long	blocks;
 	size_t			pagelen;
@@ -47,14 +52,14 @@ typedef struct {
 } Elf64_info;
 
 /************************/
-/*      PROTOTYPE       */
+/*	  PROTOTYPE	   */
 /************************/
 
-/*      Elfind.c   */
+/*	  Elfind.c   */
 Elf64_Phdr 	*find_target_segment(Elf64_Phdr *phdr, Elf64_Ehdr *ehdr, size_t *pagediff, size_t *pagelen);
 Elf64_Shdr 	*find_section(Elf64_Shdr *shdr, int shnum, char *shst, char *section_name );
 
-/*      file_handler.c    */
+/*	  file_handler.c	*/
 t_file load_file(char *path);
 t_payload *write_payload(t_file file, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr);
 void create_file(t_file file);

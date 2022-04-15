@@ -6,7 +6,7 @@ Elf64_Phdr 	*find_target_segment(Elf64_Phdr *phdr, Elf64_Ehdr *ehdr, size_t *pag
 	Elf64_Phdr *target = NULL;
 	/* Printing PT_LOAD section info */
 	printf("%8s | %8s | %8s | %7s | %7s | %7s\n",
-        "id", "type", "offset", "filesz", "memsz", "space");
+		"id", "type", "offset", "filesz", "memsz", "space");
 	for (int i = 0; i < ehdr->e_phnum; i++)
 	{
 		if (phdr[i].p_type == PT_LOAD)
@@ -16,7 +16,7 @@ Elf64_Phdr 	*find_target_segment(Elf64_Phdr *phdr, Elf64_Ehdr *ehdr, size_t *pag
 			{
 					target = phdr + i;
 			}
-            if (phdr[i].p_flags & PF_X)
+			if (phdr[i].p_flags & PF_X)
 			{
 				//target = phdr + i;
 				*pagediff = target->p_memsz - (phdr[i].p_vaddr - target->p_vaddr);
@@ -24,7 +24,7 @@ Elf64_Phdr 	*find_target_segment(Elf64_Phdr *phdr, Elf64_Ehdr *ehdr, size_t *pag
 				if (target == phdr + i)
 						*pagelen += PAYLOAD_LEN;
 				phdr[i].p_flags ^= PF_X;
-                //phdr[i].p_flags |= PF_W;
+				//phdr[i].p_flags |= PF_W;
 			}
 		}
 	}
@@ -36,6 +36,7 @@ Elf64_Phdr 	*find_target_segment(Elf64_Phdr *phdr, Elf64_Ehdr *ehdr, size_t *pag
 /* Find specific section section */
 Elf64_Shdr 	*find_section(Elf64_Shdr *shdr, int shnum, char *shst, char *section_name )
 {
+	write(1, "Here\n", 5);
 	printf("Sections info:\n%20s | %10s | %10s | %10s | %10s\n", "name", "type", "offset", "size" ,"addr");
 	for (int i = 0; i < shnum; i++)
 	{
@@ -43,9 +44,11 @@ Elf64_Shdr 	*find_section(Elf64_Shdr *shdr, int shnum, char *shst, char *section
 		if (strcmp(shst + shdr[i].sh_name, section_name) == 0)
 		{
 			printf("Found .text at offset: %lx\n", shdr[i].sh_offset);
+			write(1, "lol\n", 4);
 			return shdr + i;
 		}
 	}
+	write(1, "There\n", 6);
 
 	return NULL;
 }
