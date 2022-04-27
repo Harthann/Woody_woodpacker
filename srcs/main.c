@@ -177,10 +177,7 @@ char get_to_know_if_file_is_cut(t_file_informations *file_given)
 	{
 		header_segment = (t_header_elf64*)get_address_of_header_segment_in_mmaped_file_given_with_his_number(file_given, segment_number); 
 		if (header_segment->offset + header_segment->file_size > file_given->length)
-		{
-			printf("%ld %ld %ld\n", header_segment->offset, header_segment->file_size, file_given->length);
 			return YES;
-		}
 	}
 	return NO;
 }
