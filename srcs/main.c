@@ -172,12 +172,15 @@ char get_to_know_if_file_is_cut(t_file_informations *file_given)
 	t_header_elf64 *header_segment;
 	int segment_number = -1;
 
-	while (segment_number < file_given->number_of_headers)
+	file_given->number_of_headers = (uint16_t)file_given->mmaped[0x38];
+	while (++segment_number < file_given->number_of_headers)
 	{
-		header_segment = (t_header_elf64 *)get_address_of_header_segment_in_mmaped_file_given_with_his_number(file_given, segment_number); 
+		header_segment = (t_header_elf64*)get_address_of_header_segment_in_mmaped_file_given_with_his_number(file_given, segment_number); 
 		if (header_segment->offset + header_segment->file_size > file_given->length)
+		{
+			printf("%ld %ld %ld\n", header_segment->offset, header_segment->file_size, file_given->length);
 			return YES;
-
+		}
 	}
 	return NO;
 }
@@ -235,6 +238,7 @@ int main(int argc, char **argv)
 	inject_code_into_file_given(&file_given, &header_of_section_to_inject, size_payload, &things_to_change_in_stub);
 	int new_file_fd = open("./sample.new", O_RDWR | O_CREAT, 0777);
 	write(new_file_fd, file_given.mmaped, file_given.length);
+	munmap(file_given.mmaped, file_given.length);
 	close(new_file_fd);
 
 	return (0);
